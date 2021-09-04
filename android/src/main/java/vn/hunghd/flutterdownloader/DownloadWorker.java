@@ -256,7 +256,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         long downloadedBytes = 0;
         int responseCode;
         int times;
-        final Handler handler = new Handler(Looper.myLooper());
+//        final Handler handler = new Handler(Looper.myLooper());
 
         visited = new HashMap<>();
 
@@ -353,18 +353,20 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 byte[] buffer = new byte[BUFFER_SIZE];
                 while ((bytesRead = inputStream.read(buffer)) != -1 && !isStopped()) {
                     count += bytesRead;
-                    final int progress = (int) ((count * 100) / (contentLength + downloadedBytes));
+                    int progress = (int) ((count * 100) / (contentLength + downloadedBytes));
                     outputStream.write(buffer, 0, bytesRead);
 
                     if ((lastProgress == 0 || (progress > lastProgress && lastProgress > 0) || progress == 100)
                             && progress != lastProgress) {
-                        final String finalFilename = filename;
-                        handler.postDelayed(new Runnable() {
-                          @Override
-                          public void run() {
-                         lastProgress = progress;
- 
-                        updateNotification(context, finalFilename, DownloadStatus.RUNNING, progress, null, false, notificationTitle);
+//                        handler.postDelayed(new Runnable() {
+//                          @Override
+//                          public void run() {
+//
+//                          }
+//                        }, 100);
+                        lastProgress = progress;
+
+                        updateNotification(context, filename, DownloadStatus.RUNNING, progress, null, false, notificationTitle);
 
                         // This line possibly causes system overloaded because of accessing to DB too many ?!!!
                         // but commenting this line causes tasks loaded from DB missing current downloading progress,
@@ -372,8 +374,6 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                         // a new bunch of data fetched and a notification sent
                         taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, progress);
 
-                          }
-                        }, 100);
                     }
                 }
 
