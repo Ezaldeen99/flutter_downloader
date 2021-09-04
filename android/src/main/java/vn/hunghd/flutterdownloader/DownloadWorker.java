@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat;
 
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.Log;
@@ -255,7 +256,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         long downloadedBytes = 0;
         int responseCode;
         int times;
-        final Handler handler = new Handler();
+        final Handler handler = new Handler(Looper.myLooper());
 
         visited = new HashMap<>();
 
