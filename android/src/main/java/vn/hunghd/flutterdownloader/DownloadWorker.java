@@ -243,7 +243,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         return downloadedBytes;
     }
 
-    private void downloadFile(Context context, String fileURL, String savedDir, String filename, String notificationTitle, String headers, boolean isResume) throws IOException {
+    private void downloadFile(final Context context, String fileURL, String savedDir, String filename, final String notificationTitle, String headers, boolean isResume) throws IOException {
         String url = fileURL;
         URL resourceUrl, base, next;
         Map<String, Integer> visited;
@@ -352,17 +352,18 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 byte[] buffer = new byte[BUFFER_SIZE];
                 while ((bytesRead = inputStream.read(buffer)) != -1 && !isStopped()) {
                     count += bytesRead;
-                    int progress = (int) ((count * 100) / (contentLength + downloadedBytes));
+                    final int progress = (int) ((count * 100) / (contentLength + downloadedBytes));
                     outputStream.write(buffer, 0, bytesRead);
 
                     if ((lastProgress == 0 || (progress > lastProgress && lastProgress > 0) || progress == 100)
                             && progress != lastProgress) {
+                        final String finalFilename = filename;
                         handler.postDelayed(new Runnable() {
                           @Override
                           public void run() {
                          lastProgress = progress;
  
-                        updateNotification(context, filename, DownloadStatus.RUNNING, progress, null, false, notificationTitle);
+                        updateNotification(context, finalFilename, DownloadStatus.RUNNING, progress, null, false, notificationTitle);
 
                         // This line possibly causes system overloaded because of accessing to DB too many ?!!!
                         // but commenting this line causes tasks loaded from DB missing current downloading progress,
