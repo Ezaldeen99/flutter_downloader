@@ -255,6 +255,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         long downloadedBytes = 0;
         int responseCode;
         int times;
+        final Handler handler = new Handler();
 
         visited = new HashMap<>();
 
@@ -354,9 +355,13 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     int progress = (int) ((count * 100) / (contentLength + downloadedBytes));
                     outputStream.write(buffer, 0, bytesRead);
 
-                    if ((lastProgress == 0 || progress > lastProgress + STEP_UPDATE || progress == 100)
+                    if ((lastProgress == 0 || (progress > lastProgress && lastProgress > 0) || progress == 100)
                             && progress != lastProgress) {
-                        lastProgress = progress;
+                        handler.postDelayed(new Runnable() {
+                          @Override
+                          public void run() {
+                         lastProgress = progress;
+ 
                         updateNotification(context, filename, DownloadStatus.RUNNING, progress, null, false, notificationTitle);
 
                         // This line possibly causes system overloaded because of accessing to DB too many ?!!!
@@ -364,6 +369,9 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                         // however, this missing data should be temporary and it will be updated as soon as
                         // a new bunch of data fetched and a notification sent
                         taskDao.updateTask(getId().toString(), DownloadStatus.RUNNING, progress);
+
+                          }
+                        }, 100);
                     }
                 }
 
