@@ -34,6 +34,7 @@ import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.PluginRegistry;
+import android.util.Log;
 
 public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin {
     private static final String CHANNEL = "vn.hunghd/downloader";
@@ -242,12 +243,17 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         DownloadTask task = taskDao.loadTask(taskId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         if (task != null) {
-            if (task.status == DownloadStatus.PAUSED) {
+            if (task.status == DownloadStatus.PAUSED || task.status == DownloadStatus.FAILED) {
                 String filename = task.filename;
+                Log.e("here", filename);
+
                 if (filename == null) {
-                    filename = task.url.substring(task.url.lastIndexOf("/") + 1, task.url.length());
+                    filename = task.url.substring(task.url.lastIndexOf("/") + 1);
                 }
+                Log.e("filename", filename);
                 String partialFilePath = task.savedDir + File.separator + filename;
+                Log.e("partialFilePath", partialFilePath);
+
                 File partialFile = new File(partialFilePath);
                 if (partialFile.exists()) {
                     WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, task.headers, task.showNotification, task.openFileFromNotification, task.notificationTitle, true, requiresStorageNotLow);
@@ -269,6 +275,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     }
 
     private void retry(MethodCall call, MethodChannel.Result result) {
+        Log.e("retry", "retry");
+
         String taskId = call.argument("task_id");
         DownloadTask task = taskDao.loadTask(taskId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
