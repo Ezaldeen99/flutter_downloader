@@ -263,11 +263,10 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                     taskDao.updateTask(taskId, newTaskId, DownloadStatus.RUNNING, task.progress, false);
                     WorkManager.getInstance(context).enqueue(request);
                 } else {
-                    taskDao.updateTask(taskId, false);
-                    result.error("invalid_data", "not found partial downloaded data, this task cannot be resumed", null);
+                    retry(call, result);
                 }
             } else {
-                result.error("invalid_status", "only paused task can be resumed", null);
+                retry(call, result);
             }
         } else {
             result.error("invalid_task_id", "not found task corresponding to given task id", null);
@@ -275,22 +274,17 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     }
 
     private void retry(MethodCall call, MethodChannel.Result result) {
-        Log.e("retry", "retry");
 
         String taskId = call.argument("task_id");
         DownloadTask task = taskDao.loadTask(taskId);
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
         if (task != null) {
-            if (task.status == DownloadStatus.FAILED || task.status == DownloadStatus.CANCELED) {
                 WorkRequest request = buildRequest(task.url, task.savedDir, task.filename, task.headers, task.showNotification, task.openFileFromNotification, task.notificationTitle, false, requiresStorageNotLow);
                 String newTaskId = request.getId().toString();
                 result.success(newTaskId);
                 sendUpdateProgress(newTaskId, DownloadStatus.ENQUEUED, task.progress);
                 taskDao.updateTask(taskId, newTaskId, DownloadStatus.ENQUEUED, task.progress, false);
                 WorkManager.getInstance(context).enqueue(request);
-            } else {
-                result.error("invalid_status", "only failed and canceled task can be retried", null);
-            }
         } else {
             result.error("invalid_task_id", "not found task corresponding to given task id", null);
         }

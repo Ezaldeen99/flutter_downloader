@@ -204,7 +204,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         File partialFile = new File(saveFilePath);
         if (partialFile.exists()) {
             isResume = true;
-            log("exists file for "+ filename + "automatic resuming...");
+            log("exists file for " + filename + "automatic resuming...");
         }
 
         try {
@@ -249,7 +249,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         return downloadedBytes;
     }
 
-    private void downloadFile(Context context, String fileURL, String savedDir, String filename,String notificationTitle, String headers, boolean isResume) throws IOException {
+    private void downloadFile(Context context, String fileURL, String savedDir, String filename, String notificationTitle, String headers, boolean isResume) throws IOException {
         String url = fileURL;
         URL resourceUrl, base, next;
         Map<String, Integer> visited;
@@ -320,7 +320,6 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 log("Content-Length = " + contentLength);
 
                 String charset = getCharsetFromContentType(contentType);
-                log("Charset = " + charset);
                 if (!isResume) {
                     // try to extract filename from HTTP headers if it is not given by user
                     if (filename == null) {
@@ -342,34 +341,14 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                 }
                 saveFilePath = savedDir + File.separator + filename;
 
-                log("fileName = " + filename);
-                log("saveFilePath = " + saveFilePath);
-                log("is resyume = " + isResume);
-                log("is resyume = " + isResume);
-
                 taskDao.updateTask(getId().toString(), filename, contentType);
 
                 // opens input stream from the HTTP connection
                 inputStream = httpConn.getInputStream();
                 outputStream = new FileOutputStream(saveFilePath, isResume);
 
-                // opens an output stream to save into file
-//                Uri uriApi29 = null;
-//                File fileApi21 = null;
-//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-//                    uriApi29 = addFileToDownloadsApi29(filename);
-//                    if (isResume) {
-//                        outputStream = context.getContentResolver().openOutputStream(uriApi29, "wa");
-//                    } else {
-//                        outputStream = context.getContentResolver().openOutputStream(uriApi29, "w");
-//                    }
-//                } else {
-//                    fileApi21 = addFileToDownloadsApi21(filename);
-//                    outputStream = new FileOutputStream(fileApi21, isResume);
-//                }
-
                 long count = downloadedBytes;
-                int bytesRead = -1;
+                int bytesRead;
                 byte[] buffer = new byte[BUFFER_SIZE];
                 while ((bytesRead = inputStream.read(buffer)) != -1 && !isStopped()) {
                     count += bytesRead;
@@ -440,7 +419,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         File newFile = new File(downloadsFolder, filename);
         try {
             boolean rs = newFile.createNewFile();
-            if(rs) {
+            if (rs) {
                 return newFile;
             }
         } catch (IOException e) {
@@ -457,51 +436,11 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         return contentType.split(";")[0].trim();
     }
 
-    private boolean isImageOrVideoFile(String contentType) {
-        contentType = getContentTypeWithoutCharset(contentType);
-        return (contentType != null && (contentType.startsWith("image/") || contentType.startsWith("video")));
-    }
-
     private boolean isExternalStoragePath(String filePath) {
         File externalStorageDir = Environment.getExternalStorageDirectory();
         return filePath != null && externalStorageDir != null && filePath.startsWith(externalStorageDir.getPath());
     }
 
-    private void addImageOrVideoToGallery(String fileName, String filePath, String contentType) {
-        if (contentType != null && filePath != null && fileName != null) {
-            if (contentType.startsWith("image/")) {
-                ContentValues values = new ContentValues();
-
-                values.put(MediaStore.Images.Media.TITLE, fileName);
-                values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
-                values.put(MediaStore.Images.Media.DESCRIPTION, "");
-                values.put(MediaStore.Images.Media.MIME_TYPE, contentType);
-                values.put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis());
-                values.put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis());
-                values.put(MediaStore.Images.Media.DATA, filePath);
-
-                log("insert " + values + " to MediaStore");
-
-                ContentResolver contentResolver = getApplicationContext().getContentResolver();
-                contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-            } else if (contentType.startsWith("video")) {
-                ContentValues values = new ContentValues();
-
-                values.put(MediaStore.Video.Media.TITLE, fileName);
-                values.put(MediaStore.Video.Media.DISPLAY_NAME, fileName);
-                values.put(MediaStore.Video.Media.DESCRIPTION, "");
-                values.put(MediaStore.Video.Media.MIME_TYPE, contentType);
-                values.put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis());
-                values.put(MediaStore.Video.Media.DATE_TAKEN, System.currentTimeMillis());
-                values.put(MediaStore.Video.Media.DATA, filePath);
-
-                log("insert " + values + " to MediaStore");
-
-                ContentResolver contentResolver = getApplicationContext().getContentResolver();
-                contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
-            }
-        }
-    }
     /**
      * Create a file inside the Download folder using MediaStore API
      */
@@ -543,14 +482,6 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
-    void scanFilePath(String path, String mimeType, CallbackUri callback) {
-        MediaScannerConnection.scanFile(
-            getApplicationContext(),
-            new String[]{path},
-            new String[]{mimeType},
-            (path1, uri) -> callback.invoke(uri));
-    }
-
     private int getNotificationIconRes() {
         try {
             ApplicationInfo applicationInfo = getApplicationContext().getPackageManager().getApplicationInfo(getApplicationContext().getPackageName(), PackageManager.GET_META_DATA);
@@ -589,6 +520,17 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
         // Show the notification
         if (showNotification) {
+            // start app activity
+            PendingIntent pendingIntent = null;
+            String activityToStart = context.getPackageName() + ".MainActivity";
+            try {
+                Class<?> c = Class.forName(activityToStart);
+                Intent notificationIntent = new Intent(context, c);
+                pendingIntent = PendingIntent.getActivity(context, 0,
+                        notificationIntent, 0);
+            } catch (ClassNotFoundException ignored) {
+            }
+
             // Create the notification
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID).
                     setContentTitle(notificationTitle == null ? title : notificationTitle)
@@ -596,6 +538,11 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
                     .setOnlyAlertOnce(true)
                     .setAutoCancel(true)
                     .setPriority(NotificationCompat.PRIORITY_LOW);
+
+            // set content intent
+            if (pendingIntent != null) {
+                builder.setContentIntent(pendingIntent);
+            }
 
             if (status == DownloadStatus.RUNNING) {
                 if (progress <= 0) {
