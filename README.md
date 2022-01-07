@@ -1,4 +1,3 @@
-[![Flutter Community: flutter_downloader](https://fluttercommunity.dev/_github/header/flutter_downloader)](https://github.com/fluttercommunity/community)
 
 # Flutter Downloader
 
