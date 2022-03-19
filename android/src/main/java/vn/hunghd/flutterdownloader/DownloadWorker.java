@@ -54,14 +54,13 @@ import java.util.regex.Pattern;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import io.flutter.FlutterInjector;
+import io.flutter.embedding.engine.FlutterEngine;
+import io.flutter.embedding.engine.dart.DartExecutor;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.PluginRegistry.PluginRegistrantCallback;
 import io.flutter.view.FlutterCallbackInformation;
-import io.flutter.view.FlutterMain;
-import io.flutter.view.FlutterNativeView;
-import io.flutter.view.FlutterRunArguments;
-import io.flutter.embedding.engine.FlutterEngine;
+
 
 public class DownloadWorker extends Worker implements MethodChannel.MethodCallHandler {
     public static final String ARG_URL = "url";
@@ -153,7 +152,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
-    Override
+    @Override
     public void onStopped() {
         Context context = getApplicationContext();
         dbHelper = TaskDbHelper.getInstance(context);
@@ -168,6 +167,8 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             taskDao.updateTask(getId().toString(), DownloadStatus.CANCELED, lastProgress);
         }
     }
+
+
     @NonNull
     @Override
     public Result doWork() {
