@@ -526,8 +526,12 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
             try {
                 Class<?> c = Class.forName(activityToStart);
                 Intent notificationIntent = new Intent(context, c);
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    flags |= PendingIntent.FLAG_IMMUTABLE;
+                }
                 pendingIntent = PendingIntent.getActivity(context, 0,
-                        notificationIntent, 0);
+                        notificationIntent, flags);
             } catch (ClassNotFoundException ignored) {
             }
 
