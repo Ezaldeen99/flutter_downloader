@@ -33,7 +33,6 @@ import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
-import io.flutter.plugin.common.PluginRegistry;
 import android.util.Log;
 
 public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin {
@@ -43,22 +42,13 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
     public static final String SHARED_PREFERENCES_KEY = "vn.hunghd.downloader.pref";
     public static final String CALLBACK_DISPATCHER_HANDLE_KEY = "callback_dispatcher_handle_key";
 
-    private static FlutterDownloaderPlugin instance;
     private MethodChannel flutterChannel;
-    private TaskDbHelper dbHelper;
     private TaskDao taskDao;
     private Context context;
     private long callbackHandle;
     private int debugMode;
     private final Object initializationLock = new Object();
 
-    @SuppressLint("NewApi")
-    public static void registerWith(PluginRegistry.Registrar registrar) {
-        if (instance == null) {
-            instance = new FlutterDownloaderPlugin();
-        }
-        instance.onAttachedToEngine(registrar.context(), registrar.messenger());
-    }
 
     public void onAttachedToEngine(Context applicationContext, BinaryMessenger messenger) {
         synchronized (initializationLock) {
@@ -68,7 +58,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
             this.context = applicationContext;
             flutterChannel = new MethodChannel(messenger, CHANNEL);
             flutterChannel.setMethodCallHandler(this);
-            dbHelper = TaskDbHelper.getInstance(context);
+            TaskDbHelper dbHelper = TaskDbHelper.getInstance(context);
             taskDao = new TaskDao(dbHelper);
         }
     }
@@ -125,7 +115,7 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
                         .setRequiredNetworkType(NetworkType.CONNECTED)
                         .build())
                 .addTag(TAG)
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.SECONDS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
                 .setInputData(new Data.Builder()
                         .putString(DownloadWorker.ARG_URL, url)
                         .putString(DownloadWorker.ARG_SAVED_DIR, savedDir)

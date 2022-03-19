@@ -56,12 +56,12 @@ import androidx.work.WorkerParameters;
 
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.plugin.common.PluginRegistry.PluginRegistrantCallback;
 import io.flutter.view.FlutterCallbackInformation;
 import io.flutter.view.FlutterMain;
 import io.flutter.view.FlutterNativeView;
 import io.flutter.view.FlutterRunArguments;
+import io.flutter.embedding.engine.FlutterEngine;
 
 public class DownloadWorker extends Worker implements MethodChannel.MethodCallHandler {
     public static final String ARG_URL = "url";
@@ -82,7 +82,7 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
     private static final AtomicBoolean isolateStarted = new AtomicBoolean(false);
     private static final ArrayDeque<List> isolateQueue = new ArrayDeque<>();
-    private static FlutterNativeView backgroundFlutterView;
+    private static FlutterEngine backgroundFlutterEngine;
 
     private final Pattern charsetPattern = Pattern.compile("(?i)\\bcharset=\\s*\"?([^\\s;\"]*)");
     private final Pattern filenameStarPattern = Pattern.compile("(?i)\\bfilename\\*=([^']+)'([^']*)'\"?([^\"]+)\"?");
@@ -113,38 +113,28 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
     private void startBackgroundIsolate(Context context) {
         synchronized (isolateStarted) {
-            if (backgroundFlutterView == null) {
+            if (backgroundFlutterEngine == null) {
                 SharedPreferences pref = context.getSharedPreferences(FlutterDownloaderPlugin.SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
                 long callbackHandle = pref.getLong(FlutterDownloaderPlugin.CALLBACK_DISPATCHER_HANDLE_KEY, 0);
 
-                FlutterMain.startInitialization(context); // Starts initialization of the native system, if already initialized this does nothing
-                FlutterMain.ensureInitializationComplete(context, null);
+                backgroundFlutterEngine = new FlutterEngine(getApplicationContext(), null, false);
 
-                FlutterCallbackInformation callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(callbackHandle);
-                if (callbackInfo == null) {
-                    Log.e(TAG, "Fatal: failed to find callback");
+                // We need to create an instance of `FlutterEngine` before looking up the
+                // callback. If we don't, the callback cache won't be initialized and the
+                // lookup will fail.
+                FlutterCallbackInformation flutterCallback =
+                        FlutterCallbackInformation.lookupCallbackInformation(callbackHandle);
+                if (flutterCallback == null) {
+                    log("Fatal: failed to find callback");
                     return;
                 }
 
-                backgroundFlutterView = new FlutterNativeView(getApplicationContext(), true);
-
-                /// backward compatibility with V1 embedding
-                if (getApplicationContext() instanceof PluginRegistrantCallback) {
-                    PluginRegistrantCallback pluginRegistrantCallback = (PluginRegistrantCallback) getApplicationContext();
-                    PluginRegistry registry = backgroundFlutterView.getPluginRegistry();
-                    pluginRegistrantCallback.registerWith(registry);
-                }
-
-                FlutterRunArguments args = new FlutterRunArguments();
-                args.bundlePath = FlutterMain.findAppBundlePath();
-                args.entrypoint = callbackInfo.callbackName;
-                args.libraryPath = callbackInfo.callbackLibraryPath;
-
-                backgroundFlutterView.runFromBundle(args);
+                final String appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath();
+                final AssetManager assets = getApplicationContext().getAssets();
+                backgroundFlutterEngine.getDartExecutor().executeDartCallback(new DartExecutor.DartCallback(assets, appBundlePath, flutterCallback));
             }
         }
-
-        backgroundChannel = new MethodChannel(backgroundFlutterView, "vn.hunghd/downloader_background");
+        backgroundChannel = new MethodChannel(backgroundFlutterEngine.getDartExecutor(), "vn.hunghd/downloader_background");
         backgroundChannel.setMethodCallHandler(this);
     }
 
@@ -163,6 +153,21 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
+    Override
+    public void onStopped() {
+        Context context = getApplicationContext();
+        dbHelper = TaskDbHelper.getInstance(context);
+        taskDao = new TaskDao(dbHelper);
+
+        String url = getInputData().getString(ARG_URL);
+        String filename = getInputData().getString(ARG_FILE_NAME);
+
+        DownloadTask task = taskDao.loadTask(getId().toString());
+        if (task != null && task.status == DownloadStatus.ENQUEUED) {
+            updateNotification(context, filename == null ? url : filename, DownloadStatus.CANCELED, -1, null, true);
+            taskDao.updateTask(getId().toString(), DownloadStatus.CANCELED, lastProgress);
+        }
+    }
     @NonNull
     @Override
     public Result doWork() {
@@ -185,13 +190,19 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         msgPaused = res.getString(R.string.flutter_downloader_notification_paused);
         msgComplete = res.getString(R.string.flutter_downloader_notification_complete);
 
+        DownloadTask task = taskDao.loadTask(getId().toString());
+
         log("DownloadWorker{url=" + url + ",filename=" + filename + ",savedDir=" + savedDir + ",header=" + headers + ",isResume=" + isResume);
+
+        // Task has been deleted or cancelled
+        if (task == null || task.status == DownloadStatus.CANCELED) {
+            return Result.success();
+        }
 
         showNotification = getInputData().getBoolean(ARG_SHOW_NOTIFICATION, false);
         clickToOpenDownloadedFile = getInputData().getBoolean(ARG_OPEN_FILE_FROM_NOTIFICATION, false);
         String notificationTitle = getInputData().getString(ARG_NOTIFICATION_TITLE);
 
-        DownloadTask task = taskDao.loadTask(getId().toString());
         primaryId = task.primaryId;
 
         setupNotification(context);
@@ -411,77 +422,6 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         }
     }
 
-    /**
-     * Create a file inside the Download folder using java.io API
-     */
-    private File addFileToDownloadsApi21(String filename) {
-        File downloadsFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        File newFile = new File(downloadsFolder, filename);
-        try {
-            boolean rs = newFile.createNewFile();
-            if (rs) {
-                return newFile;
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            log("Create a file using java.io API failed ");
-        }
-        return null;
-    }
-
-
-    private String getContentTypeWithoutCharset(String contentType) {
-        if (contentType == null)
-            return null;
-        return contentType.split(";")[0].trim();
-    }
-
-    private boolean isExternalStoragePath(String filePath) {
-        File externalStorageDir = Environment.getExternalStorageDirectory();
-        return filePath != null && externalStorageDir != null && filePath.startsWith(externalStorageDir.getPath());
-    }
-
-    /**
-     * Create a file inside the Download folder using MediaStore API
-     */
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private Uri addFileToDownloadsApi29(String filename) {
-        Uri collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-        try {
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Downloads.DISPLAY_NAME, filename);
-            ContentResolver contentResolver = getApplicationContext().getContentResolver();
-            return contentResolver.insert(collection, values);
-        } catch (Exception e) {
-            e.printStackTrace();
-            log("Create a file using MediaStore API failed ");
-        }
-        return null;
-    }
-
-    /**
-     * Get a path for a MediaStore entry as it's needed when calling MediaScanner
-     */
-    private String getMediaStoreEntryPathApi29(Uri uri) {
-        try (Cursor cursor = getApplicationContext().getContentResolver().query(
-                uri,
-                new String[]{MediaStore.Files.FileColumns.DATA},
-                null,
-                null,
-                null
-        )) {
-            if (cursor == null)
-                return null;
-            if (!cursor.moveToFirst())
-                return null;
-            return cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA));
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-            log("Get a path for a MediaStore failed");
-            return null;
-        }
-    }
-
     private int getNotificationIconRes() {
         try {
             ApplicationInfo applicationInfo = getApplicationContext().getPackageManager().getApplicationInfo(getApplicationContext().getPackageName(), PackageManager.GET_META_DATA);
@@ -673,9 +613,5 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
         if (debug) {
             Log.d(TAG, message);
         }
-    }
-
-    public interface CallbackUri {
-        void invoke(Uri uri);
     }
 }
