@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.media.MediaScannerConnection;
@@ -23,7 +24,6 @@ import androidx.core.content.ContextCompat;
 
 import android.os.Environment;
 import android.os.Handler;
-import android.os.Looper;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.Log;
@@ -60,7 +60,6 @@ import io.flutter.embedding.engine.dart.DartExecutor;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.view.FlutterCallbackInformation;
-
 
 public class DownloadWorker extends Worker implements MethodChannel.MethodCallHandler {
     public static final String ARG_URL = "url";
@@ -160,10 +159,11 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
         String url = getInputData().getString(ARG_URL);
         String filename = getInputData().getString(ARG_FILE_NAME);
+        String title = getInputData().getString(ARG_NOTIFICATION_TITLE);
 
         DownloadTask task = taskDao.loadTask(getId().toString());
         if (task != null && task.status == DownloadStatus.ENQUEUED) {
-            updateNotification(context, filename == null ? url : filename, DownloadStatus.CANCELED, -1, null, true);
+            updateNotification(context, filename == null ? url : filename, DownloadStatus.CANCELED, -1, null, true, title);
             taskDao.updateTask(getId().toString(), DownloadStatus.CANCELED, lastProgress);
         }
     }
