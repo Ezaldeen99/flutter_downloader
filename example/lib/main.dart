@@ -283,11 +283,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _requestDownload(_TaskInfo task) async {
     task.taskId = await FlutterDownloader.enqueue(
-        url: task.link!,
-        headers: {"auth": "test_for_sql_encoding"},
-        savedDir: _localPath,
-        showNotification: true,
-        openFileFromNotification: true);
+      url: task.link!,
+      headers: {"auth": "test_for_sql_encoding"},
+      savedDir: _localPath,
+      showNotification: true,
+      openFileFromNotification: true,
+      saveInPublicStorage: true,
+    );
   }
 
   void _cancelDownload(_TaskInfo task) async {
@@ -324,6 +326,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<bool> _checkPermission() async {
+    if (Platform.isIOS) return true;
+
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
     if (widget.platform == TargetPlatform.android &&

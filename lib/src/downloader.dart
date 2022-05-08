@@ -60,6 +60,12 @@ class FlutterDownloader {
   /// * `notificationTitle`: if `showNotification` is `true`, sets title
   /// of notification (only Android). If this parameter is not set, the plugin
   /// will apply value of `fileName` parameter
+  /// * `saveInPublicStorage`: From Android Q onwards, switch this to `true`
+  /// to save file in Downloads folder (Android Q changes the APIs to access
+  /// external storage, app can no longer create dedicated or app-specific directory
+  /// with external storage, in this case plugin will ignore `savedDir` value
+  /// and using only `filename` value to save downloaded file in Downloads folder)
+  /// The default value is `false`
   ///
   /// **return:**
   ///
@@ -73,7 +79,7 @@ class FlutterDownloader {
       bool showNotification = true,
       bool openFileFromNotification = true,
       String notificationTitle = '',
-      bool requiresStorageNotLow = true}) async {
+      bool requiresStorageNotLow = true, bool saveInPublicStorage = false}) async {
     assert(_initialized, 'FlutterDownloader.initialize() must be called first');
     assert(Directory(savedDir).existsSync());
 
@@ -96,6 +102,7 @@ class FlutterDownloader {
         'open_file_from_notification': openFileFromNotification,
         'notification_title': notificationTitle,
         'requires_storage_not_low': requiresStorageNotLow,
+        'save_in_public_storage': saveInPublicStorage,
       });
       return taskId;
     } on PlatformException catch (e) {
