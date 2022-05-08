@@ -169,6 +169,8 @@ public class FlutterDownloaderPlugin implements MethodCallHandler, FlutterPlugin
         boolean openFileFromNotification = call.argument("open_file_from_notification");
         String notificationTitle = call.argument("notification_title");
         boolean requiresStorageNotLow = call.argument("requires_storage_not_low");
+        boolean saveInPublicStorage = call.argument("save_in_public_storage");
+
         WorkRequest request = buildRequest(url, savedDir, filename, headers, showNotification, openFileFromNotification, notificationTitle, false, requiresStorageNotLow, saveInPublicStorage);
 
         WorkManager.getInstance(context).enqueue(request);
