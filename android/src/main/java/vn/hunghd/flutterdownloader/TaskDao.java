@@ -229,7 +229,7 @@ public class TaskDao {
         int clickToOpenDownloadedFile = cursor.getShort(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_OPEN_FILE_FROM_NOTIFICATION));
         long timeCreated = cursor.getLong(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_NAME_TIME_CREATED));
         int saveInPublicStorage = cursor.getShort(cursor.getColumnIndexOrThrow(TaskContract.TaskEntry.COLUMN_SAVE_IN_PUBLIC_STORAGE));
-        return new DownloadTask(primaryId, taskId, status, progress, url, filename, savedDir, headers,  mimeType, resumable == 1, showNotification == 1, clickToOpenDownloadedFile == 1, notificationTitle, timeCreated, saveInPublicStorage == 1));
+        return new DownloadTask(primaryId, taskId, status, progress, url, filename, savedDir, headers,  mimeType, resumable == 1, showNotification == 1, clickToOpenDownloadedFile == 1, notificationTitle, timeCreated, saveInPublicStorage == 1);
 
     }
 
