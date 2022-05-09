@@ -362,8 +362,6 @@ public class DownloadWorker extends Worker implements MethodChannel.MethodCallHa
 
                 // opens input stream from the HTTP connection
                 inputStream = httpConn.getInputStream();
-                outputStream = new FileOutputStream(saveFilePath, isResume);
-
 
                 String savedFilePath;
                 // opens an output stream to save into file
